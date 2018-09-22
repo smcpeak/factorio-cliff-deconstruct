@@ -126,7 +126,10 @@ script.on_event(
     function(event)
         local entity = event.created_entity
         if entity.name == "cliff-explosive-proxy" then
-            log("player built a cliff-explosive-proxy!  refunding as explosives")
+            -- This happens when the player has a cliff-explosive in hand and clicks
+            -- on nearby ground (within building distance).  A proxy is momentarily
+            -- created, then immediately refunded.
+            log("player built a cliff-explosive-proxy; refunding as explosives")
             entity.destroy()
             local player = game.players[event.player_index]
             player.insert({name = "cliff-explosives", count = 1})
