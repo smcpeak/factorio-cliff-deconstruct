@@ -10,6 +10,13 @@ and there is no way to turn off cliff destruction.
 Cliffs will *not* be destroyed when shift-clicking a blueprint that has conflicts (unlike
 trees and rocks).
 
+The deconstruction planner filter now has an option for cliff-explosives, but it
+has no effect.
+
+It is possible to put the ghost entities that mark cliff deconstruction into a blueprint.
+If the blueprint only has those entities, it can be clicked and dragged to "paint" a very
+large number of them anywhere on the map.
+
 This mod causes the icon for the explosives to appear partially transparent when the
 mouse cursor is a short distance from the player character.  This distance is misleading
 as it is not related to the item's usage range.
@@ -19,6 +26,7 @@ as it is not related to the item's usage range.
 0.1.0
 
 * Fix memory leak and save game file growth.
+* Rework some of the internals, add comments.
 
 0.0.4
 
