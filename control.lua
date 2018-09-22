@@ -30,12 +30,11 @@ function deconstruct_area(box, player, force, surface)
             local existing_ghosts =
                 surface.find_entities_filtered(
                 {
-                    name = "entity-ghost",
-
                     -- For some reason, filtering using "position = cliff.position"
                     -- does not work.  So, search a tiny area instead.
                     area = box_around(cliff.position, 0.1),
 
+                    name = "entity-ghost",
                     ghost_name = "cliff-explosive-proxy",
                     force = force
                 })
@@ -43,8 +42,7 @@ function deconstruct_area(box, player, force, surface)
                 --log("    NOT placing ghost entity there because there already is one")
             else
                 --log("    placing ghost entity there")
-                local ghost =
-                    surface.create_entity(
+                surface.create_entity(
                     {
                         name = "entity-ghost",
                         expires = false,
@@ -141,7 +139,6 @@ script.on_configuration_changed(
     -- This is called when loading a save from a prior version of the mod.
     function()
         --log("CliffDeconstruct on_configuration_changed called")
-
         if (global.placed_explosives) then
             -- Versions prior to 0.1.0 used a global array that is no longer
             -- needed, but which grew without bound.  Remove it so as not to
