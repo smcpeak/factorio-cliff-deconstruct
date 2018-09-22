@@ -1,0 +1,9 @@
+{
+  "name": "CliffDeconstruct",
+  "version": "0.0.5",
+  "title": "Cliff Deconstruct",
+  "author": "bob809",
+  "description": "Allows robots to deconstruct cliffs using Cliff explosives.",
+  "factorio_version": "0.16",
+  "dependencies": ["base >= 0.16.0"]
+}
