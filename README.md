@@ -4,6 +4,10 @@ Using the Deconstruction Planner on cliffs will cause robots to place Cliff expl
 
 ## Changelog
 
+0.1.0
+
+* Fix memory leak and save game file growth.
+
 0.0.4
 
 * Deconstructing a cliff multiple times will no longer cause multiple explosives to be placed.
