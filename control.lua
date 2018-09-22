@@ -134,9 +134,17 @@ script.on_event(
     end
 )
 
-function init()
-    log("CliffDeconstruct init called")
-end
+script.on_configuration_changed(
+    -- This is called when loading a save from a prior version of the mod.
+    function()
+        log("CliffDeconstruct on_configuration_changed called")
 
-script.on_init(init)
-script.on_configuration_changed(init)
+        if (global.placed_explosives) then
+            -- Versions prior to 0.1.0 used a global array that is no longer
+            -- needed, but which grew without bound.  Remove it so as not to
+            -- waste space in memory and on disk.
+            log("clearing old placed_explosives")
+            global.placed_explosives = nil
+        end
+    end
+)
