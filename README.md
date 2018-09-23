@@ -22,6 +22,9 @@ If the blueprint only has those entities, it can be clicked and dragged to "pain
 large number of them anywhere on the map.  The same is true of shift-click-dragging the
 cliff-explosives item.
 
+The placement of explosives is inefficient; the algorithm uses approximately twice the
+optimal number of explosives required to destroy a given section of cliffs.
+
 This mod causes the icon for the explosives to appear partially transparent when the
 mouse cursor is a short distance from the player character.  This distance is misleading
 as it is not related to the item's usage range.
