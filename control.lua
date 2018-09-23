@@ -105,6 +105,10 @@ script.on_event(
         local entity = event.created_entity
         if entity.name == "cliff-explosive-proxy" then
             diagnostic("robot built cliff-explosive-proxy at " .. point_str(entity.position))
+
+            -- Check to see if the explosion would destroy anything.  It might
+            -- not if destroying nearby cliffs has destroyed the one this proxy
+            -- was nominally aimed at.
             if
                 #entity.surface.find_entities_filtered(
                     {
