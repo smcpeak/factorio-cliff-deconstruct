@@ -128,6 +128,35 @@ local function place_proxy(force, surface, position)
     end;
 end;
 
+-- Return the box that will be hit by a cliff explosive at 'point'.
+local function cliff_explosives_target_box(point)
+    return box_around(
+        point,
+        game.item_prototypes["cliff-explosives"].capsule_action.radius
+    );
+end;
+
+-- Return true if an explosive at 'point' would hit all of the listed targets
+-- (possibly among others).
+local function explosion_hits3(surface, point, target1, target2, target3)
+    -- Get the entities that are hit.
+    local hits = surface.find_entities_filtered({
+          area = cliff_explosives_target_box(point),
+          type = "cliff"
+    });
+
+    -- Mark all of the positions that are hit.
+    local hit_positions = {};
+    for _, entity in pairs(hits) do
+        map_insert(hit_positions, entity.position, true);
+    end;
+
+    -- Check that all targets are hit.
+    return map_contains(hit_positions, target1.position) and
+           map_contains(hit_positions, target2.position) and
+           map_contains(hit_positions, target3.position);
+end;
+
 -- If there is a neighbor of 'cliff' in its chain in 'remaining_cliffs'
 -- in direction 'dir', add it to the 'neighbors' map.  The added map
 -- entry uses 'dir' as the key.
@@ -247,8 +276,8 @@ end;
 -- first isolated, and hence destroyed.
 --
 -- 2. The collision rectangles for adjacent cliffs either touch or overlap,
--- so a single explosive placed between them will destroy both.  (In this
--- code, I do not look at their actual rectangles, only their nominal
+-- so a single explosive placed between them will destroy both.  (For this
+-- case, I do not look at their actual rectangles, only their nominal
 -- positions.  That is crude, as the positions are often outside the
 -- rectangles, but it suffices due to the (default) 1.5 effect radius.)
 --
@@ -256,18 +285,8 @@ end;
 -- cliffs in a chain with one explosion.
 --
 -- On my test map with a representative section of cliffs, these optimizations
--- reduce the number of explosives used from 24 to 13.  However, the optimal
--- number (achieved manually) is 12, so there is still a little room for
--- improvement.  (Note that I do not count an explosive that a robot carries
--- away but then returns.)
---
--- There are three additional ideas I use in manual placement that could be
--- exploited here, but are not.  First, there are cases where I can hit three
--- at once but do not; more careful checking of the explosion effect would
--- handle that.  Second, it is sometimes possible to intersect four adjacent
--- collision rectangles in a chain by careful placement.  Third, collision
--- rectangles from nearby chains can sometimes be hit by even more careful
--- placement.
+-- reduce the number of explosives used from 24 to 12.  This matches my best
+-- hand-optimized placement for that example.
 local function process_chain_from_end(force, surface, remaining_cliffs, chain_end)
     diagnostic("  process_chain_from_end at " .. point_str(chain_end.position));
 
@@ -311,8 +330,9 @@ local function process_chain_from_end(force, surface, remaining_cliffs, chain_en
         -- We have a third cliff, and will destroy it in this iteration.
         diagnostic("    third: " .. point_str(third.position));
         map_remove(remaining_cliffs, third.position);
+        local midpoint23 = midpoint(second.position, third.position);
 
-        -- Look at the fourth.
+        -- Consider the fourth.
         local fourth = neighbor_of(remaining_cliffs, third);
         if fourth == nil then
             diagnostic("    no fourth cliff");
@@ -320,34 +340,29 @@ local function process_chain_from_end(force, surface, remaining_cliffs, chain_en
             -- We can destroy both the second and third by placing one
             -- explosive between them.  (This also destroys the first
             -- by isolating it.)
-            place_proxy(force, surface, midpoint(second.position, third.position));
+            place_proxy(force, surface, midpoint23);
             return;
         end;
 
         -- We have a fourth, but might not attack it.
         diagnostic("    fourth: " .. point_str(fourth.position));
+        local midpoint234 =
+            midpoint3(second.position, third.position, fourth.position);
 
-        -- Check to see if we can get 2, 3, and 4 in one explosion.  A
-        -- sufficient (but not necessary) condition is they make an are
-        -- not all in a line horizontally or vertically.  (When they are
-        -- diagonally in a line this works.)
-        if (second.position.x ~= fourth.position.x and
-            second.position.y ~= fourth.position.y)
-        then
-            -- Not all in an H/V line, we can get them by targetting their
-            -- mutual midpoint.
+        -- Would we get all of them by attacking midpoint234?
+        if explosion_hits3(surface, midpoint234, second, third, fourth) then
+            -- Yes, do it.
             diagnostic("    attacking 2, 3, and 4");
             map_remove(remaining_cliffs, fourth.position);
-            place_proxy(force, surface,
-                midpoint3(second.position, third.position, fourth.position));
+            place_proxy(force, surface, midpoint234);
 
             -- Move to the next neighbor.
             first = neighbor_of(remaining_cliffs, fourth);
 
         else
-            -- All in a line.  Just take out 2 and 3, leaving 4 for later.
+            -- No.  Just take out 2 and 3, leaving 4 for later.
             diagnostic("    only attacking 2 and 3");
-            place_proxy(force, surface, midpoint(second.position, third.position));
+            place_proxy(force, surface, midpoint23);
             first = fourth;
         end;
     end;
@@ -437,10 +452,7 @@ script.on_event(
             if
                 table_is_not_empty(entity.surface.find_entities_filtered(
                     {
-                        area = box_around(
-                            entity.position,
-                            game.item_prototypes["cliff-explosives"].capsule_action.radius
-                        ),
+                        area = cliff_explosives_target_box(entity.position),
                         type = "cliff"
                     }
                 ))
