@@ -22,7 +22,7 @@ If the blueprint only has those entities, it can be clicked and dragged to "pain
 large number of them anywhere on the map.  The same is true of shift-click-dragging the
 cliff-explosives item.
 
-The current placement algorithm uses about 50% more explosives than optimal manual
+The current placement algorithm uses about 25% more explosives than optimal manual
 placement.  However, it is more efficient than in 0.0.5, which used about 100% more than
 optimal.
 
@@ -36,7 +36,7 @@ as it is not related to the item's usage range.
 
 * Fix memory leak and save game file growth.
 * Rework some of the internals, add comments.
-* Reduce explosive usage by placing them on every other cliff entity.
+* Reduce explosive usage by placing them between every second and third cliff entity.
 
 0.0.4
 

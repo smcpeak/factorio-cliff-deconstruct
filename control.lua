@@ -75,9 +75,10 @@ local function map_remove(map, point)
     end;
 end;
 
--- Place a proxy entity to mark 'cliff' for destruction.
-local function place_proxy(force, surface, cliff)
-    diagnostic("      destroying cliff at " .. point_str(cliff.position));
+-- Place a proxy entity at 'position', marking it as a location for
+-- robots to place cliff-explosives.
+local function place_proxy(force, surface, position)
+    diagnostic("      destroying cliffs at " .. point_str(position));
 
     -- Check to see if there is an existing ghost.  Normally there is not
     -- because the base game deconstruction logic clears them.  However, the
@@ -89,9 +90,9 @@ local function place_proxy(force, surface, cliff)
     local existing_ghosts =
         surface.find_entities_filtered(
         {
-            -- For some reason, filtering using "position = cliff.position"
+            -- For some reason, filtering using "position = position"
             -- does not work.  So, search a tiny area instead.
-            area = box_around(cliff.position, 0.1),
+            area = box_around(position, 0.1),
 
             name = "entity-ghost",
             ghost_name = "cliff-explosive-proxy",
@@ -106,7 +107,7 @@ local function place_proxy(force, surface, cliff)
                 name = "entity-ghost",
                 expires = false,
                 force = force,
-                position = cliff.position,
+                position = position,
                 inner_name = "cliff-explosive-proxy"
             }
         );
@@ -223,17 +224,32 @@ local function find_chain_end(remaining_cliffs, cliff)
     return inner_find_chain_end(remaining_cliffs, {}, cliff, 1000)
 end;
 
--- Follow the chain from the end, placing explosives on every other cliff.
+-- Follow the chain from the end, placing explosives between every second
+-- and third cliff.
 --
--- The idea is to reduce the number of used explosives by using the fact
--- that a cliff cannot have zero neighbors (if it would, it too is
--- destroyed), so it suffices to destroy half of the cliff entities.
+-- The idea is to reduce the number of used explosives by using two ideas:
+--
+-- 1. A cliff cannot have zero neighbors (if it would, it too is destroyed).
+-- Destroying the second and third cliffs in each group of 3 leaves the
+-- first isolated, and hence destroyed.
+--
+-- 2. The collision rectangles for adjacent cliffs either touch or overlap,
+-- so a single explosive placed between them will destroy both.  (In this
+-- code, I do not look at their actual rectangles, only their nominal
+-- positions.  That is crude, as the positions are often outside the
+-- rectangles, but it suffices due to the (default) 1.5 effect radius.)
 --
 -- On my test map with a representative section of cliffs, this optimization
--- reduces the number of explosives used from 24 to 17.  However, the optimal
--- number (achieved manually) is 12, so there is still significant room for
--- improvement.  (Note that I do not count an explosive that a robot carries
--- away but then returns.)
+-- reduces the number of explosives used from 24 to 15.  However, the optimal
+-- number (achieved manually) is 12, so there is still room for improvement.
+-- (Note that I do not count an explosive that a robot carries away but then
+-- returns.)
+--
+-- There are two additional ideas I use in manual placement that could be
+-- exploited here, but are not.  First, it is often possible to intersect
+-- three adjacent collision rectangles in a chain by careful placement.
+-- Second, collision rectangles from nearby chains can sometimes be hit by
+-- even more careful placement.
 local function process_chain_from_end(force, surface, remaining_cliffs, chain_end)
     diagnostic("  process_chain_from_end at " .. point_str(chain_end.position));
 
@@ -243,6 +259,7 @@ local function process_chain_from_end(force, surface, remaining_cliffs, chain_en
 
     while first ~= nil do
         diagnostic("    first: " .. point_str(first.position));
+        map_remove(remaining_cliffs, first.position);
 
         -- Get the second cliff in the chain.
         local second = neighbor_of(remaining_cliffs, first);
@@ -250,27 +267,42 @@ local function process_chain_from_end(force, surface, remaining_cliffs, chain_en
             if first == chain_end then
                 -- The very first cliff has no neighbor.  Destroy it directly.
                 diagnostic("      first in chain has no neighbor");
-                place_proxy(force, surface, first);
+                place_proxy(force, surface, first.position);
             else
                 diagnostic("      last in chain has no neighbor");
                 -- This is the other end, and we already marked its
                 -- predecessor for destruction, so it will be destroyed too.
             end;
-            map_remove(remaining_cliffs, first.position);
             return;
-        else
-            diagnostic("    second: " .. point_str(second.position));
+        end;
+
+        diagnostic("    second: " .. point_str(second.position));
+        map_remove(remaining_cliffs, second.position);
+
+        -- Get the third in the chain.
+        local third = neighbor_of(remaining_cliffs, second);
+        if third == nil then
+            diagnostic("    no third cliff");
 
             -- Destroy the second cliff, which will destroy the first too.
-            place_proxy(force, surface, second);
-
-            -- Mark both as having been processed.
-            map_remove(remaining_cliffs, first.position);
-            map_remove(remaining_cliffs, second.position);
-
-            -- Move to the next neighbor.
-            first = neighbor_of(remaining_cliffs, second);
+            place_proxy(force, surface, second.position);
+            return;
         end;
+
+        diagnostic("    third: " .. point_str(third.position));
+        map_remove(remaining_cliffs, third.position);
+
+        -- We can destroy both the second and third by placing one
+        -- explosive between them.  (This also destroys the first
+        -- by isolating it.)
+        local midpoint = {
+            x = (second.position.x + third.position.x) / 2,
+            y = (second.position.y + third.position.y) / 2
+        };
+        place_proxy(force, surface, midpoint);
+
+        -- Move to the next neighbor.
+        first = neighbor_of(remaining_cliffs, third);
     end;
 end;
 
