@@ -11,12 +11,18 @@ data:extend(
             flags = {"not-on-map", "placeable-off-grid", "player-creation"},
             collision_mask = {"doodad-layer", "not-colliding-with-itself"},
             picture = {
-                filename = "__base__/graphics/icons/cliff-explosives.png",
-                width = 32,
-                height = 32
+                -- This controls the appearance of the placed ghost entity
+                -- as well as the preview ghost held under the mouse cursor.
+                -- I have added a yellow border that shows the box where the
+                -- explosives do damage (assuming the default capsule action
+                -- radius of 1.5).  Any cliff whose collision rectangle
+                -- intersects the yellow square will be destroyed.
+                filename = "__CliffDeconstruct__/graphics/cliff-explosives-3x.png",
+                width = 96,
+                height = 96
             },
             selectable_in_game = true,
-            selection_box = {{-0.5, -0.5}, {0.5, 0.5}}
+            selection_box = {{-0.5, -0.5}, {0.5, 0.5}},
         }
     }
 )
