@@ -22,6 +22,20 @@ local function box_around(position, radius)
     };
 end;
 
+local function midpoint(p1, p2)
+    return {
+        x = (p1.x + p2.x) / 2,
+        y = (p1.y + p2.y) / 2
+    };
+end;
+
+local function midpoint3(p1, p2, p3)
+    return {
+        x = (p1.x + p2.x + p3.x) / 3,
+        y = (p1.y + p2.y + p3.y) / 3
+    };
+end;
+
 local function point_str(pt)
     return "(" .. pt.x .. "," .. pt.y .. ")";
 end;
@@ -224,10 +238,9 @@ local function find_chain_end(remaining_cliffs, cliff)
     return inner_find_chain_end(remaining_cliffs, {}, cliff, 1000)
 end;
 
--- Follow the chain from the end, placing explosives between every second
--- and third cliff.
+-- Follow the chain from the end, placing explosives periodically.
 --
--- The idea is to reduce the number of used explosives by using two ideas:
+-- The idea is to reduce the number of used explosives by using three ideas:
 --
 -- 1. A cliff cannot have zero neighbors (if it would, it too is destroyed).
 -- Destroying the second and third cliffs in each group of 3 leaves the
@@ -239,17 +252,22 @@ end;
 -- positions.  That is crude, as the positions are often outside the
 -- rectangles, but it suffices due to the (default) 1.5 effect radius.)
 --
--- On my test map with a representative section of cliffs, this optimization
--- reduces the number of explosives used from 24 to 15.  However, the optimal
--- number (achieved manually) is 12, so there is still room for improvement.
--- (Note that I do not count an explosive that a robot carries away but then
--- returns.)
+-- 3. In certain configurations, it is possible to take out three contiguous
+-- cliffs in a chain with one explosion.
 --
--- There are two additional ideas I use in manual placement that could be
--- exploited here, but are not.  First, it is often possible to intersect
--- three adjacent collision rectangles in a chain by careful placement.
--- Second, collision rectangles from nearby chains can sometimes be hit by
--- even more careful placement.
+-- On my test map with a representative section of cliffs, these optimizations
+-- reduce the number of explosives used from 24 to 13.  However, the optimal
+-- number (achieved manually) is 12, so there is still a little room for
+-- improvement.  (Note that I do not count an explosive that a robot carries
+-- away but then returns.)
+--
+-- There are three additional ideas I use in manual placement that could be
+-- exploited here, but are not.  First, there are cases where I can hit three
+-- at once but do not; more careful checking of the explosion effect would
+-- handle that.  Second, it is sometimes possible to intersect four adjacent
+-- collision rectangles in a chain by careful placement.  Third, collision
+-- rectangles from nearby chains can sometimes be hit by even more careful
+-- placement.
 local function process_chain_from_end(force, surface, remaining_cliffs, chain_end)
     diagnostic("  process_chain_from_end at " .. point_str(chain_end.position));
 
@@ -269,13 +287,14 @@ local function process_chain_from_end(force, surface, remaining_cliffs, chain_en
                 diagnostic("      first in chain has no neighbor");
                 place_proxy(force, surface, first.position);
             else
-                diagnostic("      last in chain has no neighbor");
                 -- This is the other end, and we already marked its
                 -- predecessor for destruction, so it will be destroyed too.
+                diagnostic("      last in chain has no neighbor");
             end;
             return;
         end;
 
+        -- We have a second cliff, and will destroy it in this iteration.
         diagnostic("    second: " .. point_str(second.position));
         map_remove(remaining_cliffs, second.position);
 
@@ -289,20 +308,48 @@ local function process_chain_from_end(force, surface, remaining_cliffs, chain_en
             return;
         end;
 
+        -- We have a third cliff, and will destroy it in this iteration.
         diagnostic("    third: " .. point_str(third.position));
         map_remove(remaining_cliffs, third.position);
 
-        -- We can destroy both the second and third by placing one
-        -- explosive between them.  (This also destroys the first
-        -- by isolating it.)
-        local midpoint = {
-            x = (second.position.x + third.position.x) / 2,
-            y = (second.position.y + third.position.y) / 2
-        };
-        place_proxy(force, surface, midpoint);
+        -- Look at the fourth.
+        local fourth = neighbor_of(remaining_cliffs, third);
+        if fourth == nil then
+            diagnostic("    no fourth cliff");
 
-        -- Move to the next neighbor.
-        first = neighbor_of(remaining_cliffs, third);
+            -- We can destroy both the second and third by placing one
+            -- explosive between them.  (This also destroys the first
+            -- by isolating it.)
+            place_proxy(force, surface, midpoint(second.position, third.position));
+            return;
+        end;
+
+        -- We have a fourth, but might not attack it.
+        diagnostic("    fourth: " .. point_str(fourth.position));
+
+        -- Check to see if we can get 2, 3, and 4 in one explosion.  A
+        -- sufficient (but not necessary) condition is they make an are
+        -- not all in a line horizontally or vertically.  (When they are
+        -- diagonally in a line this works.)
+        if (second.position.x ~= fourth.position.x and
+            second.position.y ~= fourth.position.y)
+        then
+            -- Not all in an H/V line, we can get them by targetting their
+            -- mutual midpoint.
+            diagnostic("    attacking 2, 3, and 4");
+            map_remove(remaining_cliffs, fourth.position);
+            place_proxy(force, surface,
+                midpoint3(second.position, third.position, fourth.position));
+
+            -- Move to the next neighbor.
+            first = neighbor_of(remaining_cliffs, fourth);
+
+        else
+            -- All in a line.  Just take out 2 and 3, leaving 4 for later.
+            diagnostic("    only attacking 2 and 3");
+            place_proxy(force, surface, midpoint(second.position, third.position));
+            first = fourth;
+        end;
     end;
 end;
 
@@ -397,7 +444,7 @@ script.on_event(
                         type = "cliff"
                     }
                 ))
-             then
+            then
                 diagnostic("  creating actual explosive");
                 entity.surface.create_entity(
                     {name = "cliff-explosives", target = entity, position = entity.position, speed = 100}
