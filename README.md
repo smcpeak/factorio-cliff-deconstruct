@@ -46,6 +46,7 @@ Consequently, there is no resource penalty associated with using robots to do th
 * Fix memory leak and consequent save game file growth.
 * Rework some of the internals, add comments.
 * Reduce explosive usage by about half, which is near optimal, through careful placement.
+* Add options to enable the mod, enable logging, and draw explosive area of effect.
 
 0.0.4
 

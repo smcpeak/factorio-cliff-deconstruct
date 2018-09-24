@@ -21,6 +21,15 @@ data:extend({
         setting_type = "runtime-global",
         default_value = false
     },
+
+    -- When true, the graphics for the cliff explosives include a box that
+    -- shows their area of effect (assuming the default radius of 1.5).
+    {
+        type = "bool-setting",
+        name = "cliff-deconstruct-show-area-of-effect",
+        setting_type = "startup",
+        default_value = false
+    },
 });
 
 -- EOF

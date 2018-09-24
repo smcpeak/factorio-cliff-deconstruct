@@ -1,3 +1,28 @@
+-- data.lua
+-- Modify data tables for Cliff Deconstruct.
+
+-- This controls the appearance of the placed ghost entity
+-- as well as the preview ghost held under the mouse cursor.
+local function cliff_explosive_picture()
+    if settings.startup["cliff-deconstruct-show-area-of-effect"].value then
+        -- I have added a yellow border that shows the box where the
+        -- explosives do damage (assuming the default capsule action
+        -- radius of 1.5).  Any cliff whose collision rectangle
+        -- intersects the yellow square will be destroyed.
+        return {
+            filename = "__CliffDeconstruct__/graphics/cliff-explosives-3x.png",
+            width = 96,
+            height = 96
+        };
+    else
+        return {
+            filename = "__base__/graphics/icons/cliff-explosives.png",
+            width = 32,
+            height = 32
+        };
+    end;
+end;
+
 data:extend(
     {
         -- This proxy entity is only meant to be created as a ghost.
@@ -10,26 +35,7 @@ data:extend(
             inventory_size = 16,
             flags = {"not-on-map", "placeable-off-grid", "player-creation"},
             collision_mask = {"doodad-layer", "not-colliding-with-itself"},
-
-            -- This controls the appearance of the placed ghost entity
-            -- as well as the preview ghost held under the mouse cursor.
-            picture = {
-                -- I have added a yellow border that shows the box where the
-                -- explosives do damage (assuming the default capsule action
-                -- radius of 1.5).  Any cliff whose collision rectangle
-                -- intersects the yellow square will be destroyed.
-                --
-                -- But this is disabled normally.  I just use it during
-                -- development to see the exact effect of a given placement.
-                --filename = "__CliffDeconstruct__/graphics/cliff-explosives-3x.png",
-                --width = 96,
-                --height = 96
-
-                filename = "__base__/graphics/icons/cliff-explosives.png",
-                width = 32,
-                height = 32
-            },
-
+            picture = cliff_explosive_picture(),
             selectable_in_game = true,
             selection_box = {{-0.5, -0.5}, {0.5, 0.5}},
         }
