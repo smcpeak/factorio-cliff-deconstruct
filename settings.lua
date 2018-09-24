@@ -11,7 +11,16 @@ data:extend({
         name = "cliff-deconstruct-enabled",
         setting_type = "runtime-per-user",
         default_value = true
-    }
+    },
+
+    -- When true, the mod logs its actions fairly extensively for
+    -- diagnostic purposes.
+    {
+        type = "bool-setting",
+        name = "cliff-deconstruct-logging",
+        setting_type = "runtime-global",
+        default_value = false
+    },
 });
 
 -- EOF

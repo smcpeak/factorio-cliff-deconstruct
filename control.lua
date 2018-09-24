@@ -11,6 +11,18 @@ local function diagnostic(str)
      end;
 end;
 
+-- Re-read the setting that controls the 'verbose' flag.
+local function read_verbose_setting()
+    diagnostic("read_verbose_setting started");
+    verbose = settings.global["cliff-deconstruct-logging"].value;
+    diagnostic("read_verbose_setting finished");
+end;
+
+-- Do it once on startup, then afterward in response to the
+-- on_runtime_mod_setting_changed event.
+read_verbose_setting();
+script.on_event(defines.events.on_runtime_mod_setting_changed, read_verbose_setting);
+
 local function box_non_zero(box)
     return box.right_bottom.x - box.left_top.x > 0 and box.right_bottom.y - box.left_top.y > 0;
 end;
