@@ -447,6 +447,14 @@ script.on_event(
         local player = game.players[event.player_index];
         local force = player.force;
         local surface = player.surface;
+
+        local enabled = settings.get_player_settings(
+            game.players[event.player_index])["cliff-deconstruct-enabled"].value;
+        if not enabled then
+            diagnostic("CliffDeconstruct is currently disabled, ignoring use of deconstruction planner");
+            return;
+        end;
+
         if event.alt then
             cancel_deconstruct(box, player, force, surface);
         else

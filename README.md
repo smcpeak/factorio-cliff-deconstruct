@@ -7,8 +7,9 @@ by robots.
 
 ## Known Issues
 
-Cliffs will be destroyed regardless of the current deconstruction planner filter settings,
-and there is no way to turn off cliff destruction.
+Cliffs will be destroyed regardless of the current deconstruction planner filter settings.
+However, there is a setting (in Options -> Mod Settings) to disable the mod, in which case
+it will ignore uses of the deconstruction planner.
 
 Cliffs will *not* be destroyed when shift-clicking a blueprint that has conflicts (unlike
 trees and rocks).
