@@ -22,20 +22,6 @@ local function box_around(position, radius)
     };
 end;
 
-local function midpoint(p1, p2)
-    return {
-        x = (p1.x + p2.x) / 2,
-        y = (p1.y + p2.y) / 2
-    };
-end;
-
-local function midpoint3(p1, p2, p3)
-    return {
-        x = (p1.x + p2.x + p3.x) / 3,
-        y = (p1.y + p2.y + p3.y) / 3
-    };
-end;
-
 local function point_str(pt)
     return "(" .. pt.x .. "," .. pt.y .. ")";
 end;
@@ -89,6 +75,24 @@ local function map_remove(map, point)
     end;
 end;
 
+-- Return the average of a set of entity positions, presented in an array.
+local function midpoint_of_entities(entities)
+    if #entities == 0 then
+        return { x=0, y=0 };
+    else
+        local x_sum = 0;
+        local y_sum = 0;
+        for _, ent in ipairs(entities) do
+            x_sum = x_sum + ent.position.x;
+            y_sum = y_sum + ent.position.y;
+        end;
+        return {
+            x = x_sum / #entities,
+            y = y_sum / #entities
+        };
+    end;
+end;
+
 -- Place a proxy entity at 'position', marking it as a location for
 -- robots to place cliff-explosives.
 local function place_proxy(force, surface, position)
@@ -136,9 +140,9 @@ local function cliff_explosives_target_box(point)
     );
 end;
 
--- Return true if an explosive at 'point' would hit all of the listed targets
--- (possibly among others).
-local function explosion_hits3(surface, point, target1, target2, target3)
+-- Return true if an explosive at 'point' would hit all of the listed
+-- target entities (possibly among others).
+local function explosion_hits_targets(surface, point, target_entities)
     -- Get the entities that are hit.
     local hits = surface.find_entities_filtered({
           area = cliff_explosives_target_box(point),
@@ -152,9 +156,12 @@ local function explosion_hits3(surface, point, target1, target2, target3)
     end;
 
     -- Check that all targets are hit.
-    return map_contains(hit_positions, target1.position) and
-           map_contains(hit_positions, target2.position) and
-           map_contains(hit_positions, target3.position);
+    for _, target in ipairs(target_entities) do
+        if not map_contains(hit_positions, target.position) then
+            return false;
+        end;
+    end;
+    return true;
 end;
 
 -- If there is a neighbor of 'cliff' in its chain in 'remaining_cliffs'
@@ -269,20 +276,17 @@ end;
 
 -- Follow the chain from the end, placing explosives periodically.
 --
--- The idea is to reduce the number of used explosives by using three ideas:
+-- The idea is to reduce the number of used explosives by using two ideas:
 --
 -- 1. A cliff cannot have zero neighbors (if it would, it too is destroyed).
--- Destroying the second and third cliffs in each group of 3 leaves the
--- first isolated, and hence destroyed.
+-- For example, destroying the second and third cliffs in each group of 3
+-- leaves the first isolated, and hence destroyed.
 --
--- 2. The collision rectangles for adjacent cliffs either touch or overlap,
--- so a single explosive placed between them will destroy both.  (For this
--- case, I do not look at their actual rectangles, only their nominal
--- positions.  That is crude, as the positions are often outside the
--- rectangles, but it suffices due to the (default) 1.5 effect radius.)
---
--- 3. In certain configurations, it is possible to take out three contiguous
--- cliffs in a chain with one explosion.
+-- 2. The collision rectangles for nearby cliffs in a chain can often be
+-- hit with a single explosion.  Two adjacent cliffs can always be hit by
+-- targetting their midpoint, and 3 or even 4 are sometimes possible.  The
+-- ability to multi-target is evaluated by testing whether aiming at the
+-- midpoint of a group will hit them all.
 --
 -- On my test map with a representative section of cliffs, these optimizations
 -- reduce the number of explosives used from 24 to 12.  This matches my best
@@ -317,54 +321,66 @@ local function process_chain_from_end(force, surface, remaining_cliffs, chain_en
         diagnostic("    second: " .. point_str(second.position));
         map_remove(remaining_cliffs, second.position);
 
-        -- Get the third in the chain.
-        local third = neighbor_of(remaining_cliffs, second);
-        if third == nil then
-            diagnostic("    no third cliff");
+        -- Begin accumulating cliffs to directly target in an array,
+        -- starting with the second (since the first will be killed by
+        -- isolating it).
+        local target_cliffs = {second};
 
-            -- Destroy the second cliff, which will destroy the first too.
-            place_proxy(force, surface, second.position);
-            return;
+        -- Iteration cap for safety.
+        local iters = 0;
+
+        while true do
+            -- Get the next cliff in the chain.
+            local last_cliff = target_cliffs[#target_cliffs];
+            local next_cliff = neighbor_of(remaining_cliffs, last_cliff);
+            if next_cliff == nil or iters > 1000 then
+                if next_cliff == nil then
+                    diagnostic("    no next cliff");
+                else
+                    -- This should only be possible if someone changes
+                    -- the cliff-explosive radius to something very large.
+                    diagnostic("    warning: hit target accumulation iteration limit!");
+                end;
+
+                -- Target the midpoint of the current set.
+                place_proxy(force, surface, midpoint_of_entities(target_cliffs));
+
+                -- The chain has ended.
+                return;
+            end;
+            diagnostic("    next: " .. point_str(next_cliff.position));
+
+            -- See if we can add the next cliff to the set of targets to
+            -- kill in one shot.
+            target_cliffs[#target_cliffs + 1] = next_cliff;
+            local aim_point = midpoint_of_entities(target_cliffs);
+            diagnostic("      aim_point: " .. point_str(aim_point));
+            if explosion_hits_targets(surface, aim_point, target_cliffs) then
+                -- Yes, keep the next in the current targets and keep
+                -- trying to add more.
+                diagnostic("      hits all targets");
+                map_remove(remaining_cliffs, next_cliff.position);
+            else
+                -- No, cannot hit next cliff, revert and stop adding
+                -- to this target set.
+                target_cliffs[#target_cliffs] = nil;
+                diagnostic("      does not hit all, removing next and " ..
+                           "shooting at remaining " .. #target_cliffs);
+
+                -- Target the midpoint of the current set.
+                place_proxy(force, surface, midpoint_of_entities(target_cliffs));
+                break;
+            end;
+
+            iters = iters+1;
         end;
 
-        -- We have a third cliff, and will destroy it in this iteration.
-        diagnostic("    third: " .. point_str(third.position));
-        map_remove(remaining_cliffs, third.position);
-        local midpoint23 = midpoint(second.position, third.position);
-
-        -- Consider the fourth.
-        local fourth = neighbor_of(remaining_cliffs, third);
-        if fourth == nil then
-            diagnostic("    no fourth cliff");
-
-            -- We can destroy both the second and third by placing one
-            -- explosive between them.  (This also destroys the first
-            -- by isolating it.)
-            place_proxy(force, surface, midpoint23);
-            return;
-        end;
-
-        -- We have a fourth, but might not attack it.
-        diagnostic("    fourth: " .. point_str(fourth.position));
-        local midpoint234 =
-            midpoint3(second.position, third.position, fourth.position);
-
-        -- Would we get all of them by attacking midpoint234?
-        if explosion_hits3(surface, midpoint234, second, third, fourth) then
-            -- Yes, do it.
-            diagnostic("    attacking 2, 3, and 4");
-            map_remove(remaining_cliffs, fourth.position);
-            place_proxy(force, surface, midpoint234);
-
-            -- Move to the next neighbor.
-            first = neighbor_of(remaining_cliffs, fourth);
-
-        else
-            -- No.  Just take out 2 and 3, leaving 4 for later.
-            diagnostic("    only attacking 2 and 3");
-            place_proxy(force, surface, midpoint23);
-            first = fourth;
-        end;
+        -- The loop ends after we have placed an explosive to kill
+        -- everything in 'targets'.  We will now regard whatever follows
+        -- the last cliff in that array as the first of the remainder of
+        -- the chain.
+        local last_cliff = target_cliffs[#target_cliffs];
+        first = neighbor_of(remaining_cliffs, last_cliff);
     end;
 end;
 
