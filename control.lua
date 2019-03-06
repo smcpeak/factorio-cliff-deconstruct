@@ -56,6 +56,7 @@ local function is_cliff_end(cliff)
 end;
 
 -- Insert 'object' into 'map', indexed by 2D 'point'.
+-- In this file a map is a 2d array, referenced by position [x][y].
 local function map_insert(map, point, object)
     map[point.x] = map[point.x] or {};
     map[point.x][point.y] = object;
@@ -296,7 +297,7 @@ end;
 --
 -- 2. The collision rectangles for nearby cliffs in a chain can often be
 -- hit with a single explosion.  Two adjacent cliffs can always be hit by
--- targetting their midpoint, and 3 or even 4 are sometimes possible.  The
+-- targeting their midpoint, and 3 or even 4 are sometimes possible.  The
 -- ability to multi-target is evaluated by testing whether aiming at the
 -- midpoint of a group will hit them all.
 --

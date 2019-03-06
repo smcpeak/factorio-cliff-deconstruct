@@ -69,9 +69,3 @@ data:extend(
 -- and potentially confusing, since ordinary clicking on cliffs is still possible,
 -- per the "capsule" behavior aspect, if within the capsule deployment radius.
 data.raw["capsule"]["cliff-explosives"].place_result = "cliff-explosive-proxy"
-
--- This is a bug fix for base Factorio, somewhat randomly included in this mod.
--- Early versions of 0.16 had explosives.png (red) instead of cliff-explosives.png
--- (blue).  It was fixed sometime between 0.16.5 and 0.16.35, so when running a
--- recent version of Factorio, this line has no effect.
-data.raw["projectile"]["cliff-explosives"].animation.filename = "__base__/graphics/icons/cliff-explosives.png"

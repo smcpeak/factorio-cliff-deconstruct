@@ -31,5 +31,3 @@ data:extend({
         default_value = false
     },
 });
-
--- EOF
