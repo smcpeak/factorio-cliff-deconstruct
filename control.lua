@@ -254,7 +254,7 @@ local function inner_find_chain_end(remaining_cliffs, chain_elements, cliff, lim
     -- Fail-safe in case the 'chain_elements' logic gets busted.  Factorio
     -- itself does not provide a safeguard for a runaway script.
     if limit < 1 then
-        diagnositc("warning: inner_find_chain_end seems to be hung");
+        diagnostic("warning: inner_find_chain_end seems to be hung");
         return cliff;
     end;
 
